@@ -1,4 +1,4 @@
-import sample.example.MyCustomClass
+@Library('test@1.0') _
 
 pipeline {
   agent any
