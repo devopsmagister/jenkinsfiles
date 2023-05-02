@@ -1,4 +1,4 @@
-package src.example
+package vars
 class MyCustomClass {
     String name
     String test
