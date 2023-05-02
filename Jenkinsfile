@@ -1,3 +1,4 @@
+import sample.example.MyCustomClass
 
 pipeline {
   agent any
