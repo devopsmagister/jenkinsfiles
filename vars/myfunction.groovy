@@ -1,4 +1,4 @@
-import com.devops
+import com.devops.myCustomClass
 def call(String message) {
     def String LastName
 
