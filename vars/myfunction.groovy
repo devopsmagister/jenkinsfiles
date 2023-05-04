@@ -13,7 +13,7 @@ def call(String message) {
         stage('Example') {
           steps {
             script {
-                def myInstance = new myCustomClass("${params.FirstName}", "${LastName}")
+                def myInstance = new myCustomClass("${params.FirstName}", "${params.LastName}")
                 myInstance.greet()
 
             }
