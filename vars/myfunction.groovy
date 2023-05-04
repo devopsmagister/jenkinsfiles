@@ -1,12 +1,12 @@
 import com.devops.myCustomClass
 def call(String message) {
-    def String LastName
 
     pipeline {
         agent any
 
         parameters {
             string(name: 'FirstName', defaultValue: 'Mr Jenkins', description: 'Who should I say hello to?')
+            string(name: 'LastName', defaultValue: 'Mr Jenkins', description: 'Who should I say hello to?')
       }
 
       stages {
