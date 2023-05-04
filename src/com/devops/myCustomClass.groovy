@@ -8,7 +8,7 @@ class myCustomClass {
         this.test = test
     }
     
-    void greet() {
+    String greet() {
         println("Hello, ${this.name} ${this.test}!")
         def myEnvVar = System.getenv("JAVA_HOME")
         println "The value of MY_ENV_VAR is: ${myEnvVar}"
