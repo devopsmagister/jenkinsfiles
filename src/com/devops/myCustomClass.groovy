@@ -1,9 +1,9 @@
-// package sample.example
-class MyCustomClass {
+package com.devops
+class myCustomClass {
     String name
     String test
     
-    MyCustomClass(String name, String test) {
+    myCustomClass(String name, String test) {
         this.name = name
         this.test = test
     }
