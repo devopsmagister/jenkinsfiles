@@ -1,4 +1,4 @@
-package src.com.devops
+package com.devops
 class myCustomClass {
     String name
     String test
