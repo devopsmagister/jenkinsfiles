@@ -15,8 +15,14 @@ def call(String message) {
             script {
                 def myInstance = new myCustomClass("${params.FirstName}", "${params.LastName}")
                 myInstance.greet()
-
-            }
+                // output = myInstance.greet()
+                // println("Output is")
+                // println(output)
+                // sh """
+                //   echo "staus is  ${output}" > file.txt
+                //   """
+                //  archiveArtifacts artifacts: 'file.txt'
+                }
 
           }
         }
