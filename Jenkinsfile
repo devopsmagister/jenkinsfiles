@@ -1,18 +1,23 @@
 @Library('test@main') _
 
-pipeline {
-  agent any
+myfunction()
 
-  stages {
-    stage('Call Groovy Class') {
-      steps {
-          script {
-            def myInstance = new MyCustomClass("Chiranjit", "Ghosh")
-            // myInstance.greet()
-            def result = myInstance.greet()
-            echo "staus is  ${result}"
-          }
-      }
-    }
-  }
-}
+// pipeline {
+//   agent any
+
+//   stages {
+//     stage('Call Groovy Class') {
+//       steps {
+//           script {
+//             def myInstance = new MyCustomClass("Chiranjit", "Ghosh")
+//             // myInstance.greet()
+//             def result = myInstance.greet()
+//             sh """
+//               echo "staus is  ${result}" > file.txt
+//               """
+//              archiveArtifacts artifacts: 'file.txt'
+//           }
+//       }
+//     }
+//   }
+// }

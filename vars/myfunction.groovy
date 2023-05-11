@@ -1,4 +1,4 @@
-import com.devops.myCustomClass
+import src.com.devops.myCustomClass
 def call(String message) {
 
     pipeline {
