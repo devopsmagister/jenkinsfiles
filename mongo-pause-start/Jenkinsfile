@@ -1,0 +1,25 @@
+pipeline {
+    agent any
+
+    parameters {
+        choice(name: 'Environment', choices: ['DEV', 'QA1', 'QA2', 'STAGING'], description: 'Select the environemnt name')
+        choice(name: 'Action', choices: ['pause', 'start', ], description: 'Selet the action')
+    } 
+    environment {
+        projecct_id = '123456'
+    }   
+    stages {
+        stage('Mongo Update') {
+            steps {
+               script '''
+                 atlas cluster ${params.Action} ${params.Environment} --project_id ${project_id}
+               '''
+            }
+        }
+    }
+    post {
+        Always {
+            currentBuild.displayName = '${params.Environment} -- ${params.Action}'
+        }
+    }
+}
