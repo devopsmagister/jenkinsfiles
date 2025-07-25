@@ -1,3 +1,37 @@
+@NonCPS
+def getRolePermissionsJson() {
+    import jenkins.model.*
+    import com.michelin.cio.hudson.plugins.rolestrategy.*
+    import groovy.json.JsonOutput
+
+    def output = []
+    def jenkins = Jenkins.getInstance()
+    def authStrategy = jenkins.getAuthorizationStrategy()
+
+    if (authStrategy instanceof RoleBasedAuthorizationStrategy) {
+        def roleMaps = authStrategy.getRoleMaps()
+        roleMaps.each { roleType, roleMap ->
+            def roleToSids = roleMap.getGrantedRoles()
+            roleToSids.each { role, sidSet ->
+                def permissions = role.getPermissions()*.id
+                sidSet.each { sid ->
+                    if (sid != "anonymous") {
+                        output << [
+                            scope      : roleType.toString(),
+                            role       : role.getName(),
+                            permissions: permissions,
+                            sid        : sid
+                        ]
+                    }
+                }
+            }
+        }
+        return JsonOutput.prettyPrint(JsonOutput.toJson(output))
+    } else {
+        error "❌ Role-Based Authorization Strategy not enabled. Found: ${authStrategy.getClass().getName()}"
+    }
+}
+
 pipeline {
     agent any
 
@@ -6,50 +40,33 @@ pipeline {
         XLSX_FILE = 'jenkins_roles_report.xlsx'
     }
 
+    options {
+        skipDefaultCheckout(true)
+    }
+
     stages {
         stage('Extract Role Permissions') {
             steps {
                 script {
-                    // Groovy logic must run in non-sandboxed environment
-                    def output = []
-                    def jenkins = Jenkins.getInstance()
-                    def authStrategy = jenkins.getAuthorizationStrategy()
-
-                    if (authStrategy instanceof com.michelin.cio.hudson.plugins.rolestrategy.RoleBasedAuthorizationStrategy) {
-                        def roleMaps = authStrategy.getRoleMaps()
-
-                        roleMaps.each { roleType, roleMap ->
-                            def roleToSids = roleMap.getGrantedRoles()  // Role -> Set<String>
-                            roleToSids.each { role, sidSet ->
-                                def permissions = role.getPermissions()*.id
-                                sidSet.each { sid ->
-                                    output << [
-                                        scope      : roleType.toString(),
-                                        role       : role.getName(),
-                                        permissions: permissions,
-                                        sid        : sid
-                                    ]
-                                }
-                            }
-                        }
-
-                        def jsonStr = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(output))
-                        writeFile file: "${JSON_FILE}", text: jsonStr
-                        echo "✅ Permissions exported to ${JSON_FILE}"
-                    } else {
-                        error "❌ Role-Based Authorization Strategy not enabled. Found: ${authStrategy.getClass().getName()}"
-                    }
+                    def jsonStr = getRolePermissionsJson()
+                    writeFile file: "${JSON_FILE}", text: jsonStr
+                    echo "✅ Permissions exported to ${JSON_FILE} (excluding anonymous)"
                 }
             }
         }
 
-        stage('Install openpyxl') {
+        stage('Install Python Dependencies') {
             steps {
-                sh 'pip install --user openpyxl'
+                sh '''
+                    python3.12 -m venv venv
+                    . venv/bin/activate
+                    pip install --upgrade pip
+                    pip install openpyxl
+                '''
             }
         }
 
-        stage('Convert to Excel') {
+        stage('Generate Excel Report') {
             steps {
                 writeFile file: 'to_excel.py', text: '''
 import json
@@ -62,10 +79,10 @@ wb = openpyxl.Workbook()
 ws = wb.active
 ws.title = "Jenkins Roles"
 
-# Header row
+# Headers
 ws.append(["Scope", "Role", "SID", "Permissions"])
 
-# Data rows
+# Rows
 for entry in data:
     scope = entry.get("scope", "")
     role = entry.get("role", "")
@@ -75,14 +92,41 @@ for entry in data:
 
 wb.save("jenkins_roles_report.xlsx")
 '''
-                sh 'python to_excel.py'
+                sh '''
+                    . venv/bin/activate
+                    python to_excel.py
+                '''
             }
         }
 
-        stage('Archive Excel Report') {
+        stage('Archive Report') {
             steps {
                 archiveArtifacts artifacts: "${XLSX_FILE}", fingerprint: true
             }
+        }
+
+        stage('Send Email') {
+            steps {
+                emailext (
+                    subject: "Jenkins Role-Based Access Report",
+                    body: '''Hi Team,
+
+Please find attached the latest Jenkins Role-Based Access report.
+
+Regards,
+Jenkins
+''',
+                    to: 'test@test.com',
+                    attachmentsPattern: "${XLSX_FILE}",
+                    mimeType: 'text/html'
+                )
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
         }
     }
 }
