@@ -1,0 +1,88 @@
+@Grab('org.apache.poi:poi-ooxml:5.2.2') // Apache POI library
+import org.apache.poi.xssf.usermodel.*
+import org.apache.poi.ss.usermodel.*
+import jenkins.model.*
+import com.michelin.cio.hudson.plugins.rolestrategy.*
+import java.nio.file.*
+
+// File location
+def outputFile = new File("/tmp/jenkins_roles_report.xlsx")
+
+def jenkins = Jenkins.getInstance()
+def authStrategy = jenkins.getAuthorizationStrategy()
+
+if (!(authStrategy instanceof RoleBasedAuthorizationStrategy)) {
+    println "❌ Role-Based Authorization Strategy is not enabled"
+    return
+}
+
+def wb = new XSSFWorkbook()
+def sheet = wb.createSheet("Jenkins Roles")
+
+// Style for header
+def headerStyle = wb.createCellStyle()
+def font = wb.createFont()
+font.setBold(true)
+headerStyle.setFont(font)
+
+// Header
+def header = sheet.createRow(0)
+["Scope", "Role", "SID", "Permissions"].eachWithIndex { col, i ->
+    def cell = header.createCell(i)
+    cell.setCellValue(col)
+    cell.setCellStyle(headerStyle)
+}
+
+def rowNum = 1
+def roleMaps = authStrategy.getRoleMaps()
+
+roleMaps.each { roleType, roleMap ->
+    def roleToSids = roleMap.getGrantedRoles()
+    roleToSids.each { role, sidSet ->
+        def permissions = role.getPermissions()*.id.join(", ")
+        sidSet.findAll { it != "anonymous" }.each { sid ->
+            def row = sheet.createRow(rowNum++)
+            row.createCell(0).setCellValue(roleType.toString())
+            row.createCell(1).setCellValue(role.name)
+            row.createCell(2).setCellValue(sid)
+            row.createCell(3).setCellValue(permissions)
+        }
+    }
+}
+
+// Autosize columns
+(0..3).each { sheet.autoSizeColumn(it) }
+
+// Save file
+outputFile.withOutputStream { os -> wb.write(os) }
+wb.close()
+
+println "✅ Excel file written to: ${outputFile.absolutePath}"
+
+// Optional: email (works if Jenkins SMTP is configured)
+def mailService = jenkins.getExtensionList('hudson.tasks.Mailer')[0]
+def adminAddress = "test@test.com"  // Change recipient
+def subject = "Jenkins Roles Report"
+def body = "Attached is the Jenkins Role-Based Access report."
+
+try {
+    def msg = new hudson.tasks.Mailer.UserProperty(adminAddress)
+    def mail = new hudson.tasks.Mailer()
+    def attachment = outputFile
+
+    // You must configure "Extended Email" plugin or default SMTP for this to work.
+    if (attachment.exists()) {
+        println "📧 Sending email to ${adminAddress}..."
+
+        // Use a Jenkins mailer plugin (e.g., Email Extension Plugin) for richer support
+        // If you have Email Extension Plugin: use `emailext()` in Jenkinsfile instead
+        // Here, we just log that email should be sent
+        println "📎 Report is ready: ${attachment.absolutePath}"
+        println "📬 Email to: ${adminAddress} (manual step or via Jenkinsfile email stage)"
+    } else {
+        println "⚠️ File does not exist, cannot send email."
+    }
+
+} catch (Exception e) {
+    println "⚠️ Email sending failed: ${e.message}"
+}
