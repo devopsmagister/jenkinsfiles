@@ -1,0 +1,30 @@
+pipeline {
+    agent any
+
+    environment {
+        PYTHON = "python3.12"
+        REPORT_FILE = "jenkins_roles_report.xlsx"
+        JENKINS_URL = "http://localhost:8080"  // Change if needed
+        JENKINS_USER = "admin"                 // Jenkins admin username
+        JENKINS_TOKEN = "your_api_token_here"  // Use a secure token
+    }
+
+    stages {
+        stage('Write Python Script') {
+            steps {
+                script {
+                    writeFile file: 'generate_report.py', text: """
+import json
+import openpyxl
+import requests
+from requests.auth import HTTPBasicAuth
+
+jenkins_url = "${env.JENKINS_URL}"
+script_url = f"{jenkins_url}/scriptText"
+auth = HTTPBasicAuth("${env.JENKINS_USER}", "${env.JENKINS_TOKEN}")
+
+groovy_script = \"\"\"
+import com.michelin.cio.hudson.plugins.rolestrategy.*
+import jenkins.model.*
+def rbs = Jenkins.instance.getAuthorizationStrategy()
+def result = [:]
