@@ -28,3 +28,74 @@ import com.michelin.cio.hudson.plugins.rolestrategy.*
 import jenkins.model.*
 def rbs = Jenkins.instance.getAuthorizationStrategy()
 def result = [:]
+if (rbs instanceof RoleBasedAuthorizationStrategy) {
+    def roleMaps = rbs.roleMaps
+    roleMaps.each { type, roleMap ->
+        result[type.toString()] = [:]
+        roleMap.getRoleNames().each { role ->
+            def sids = roleMap.getSIDs(role).findAll { it != "anonymous" }
+            result[type.toString()][role] = sids
+        }
+    }
+}
+return groovy.json.JsonOutput.toJson(result)
+\"\"\"
+
+response = requests.post(
+    script_url,
+    auth=auth,
+    headers={"Content-Type": "application/x-www-form-urlencoded"},
+    data={"script": groovy_script}
+)
+
+if response.status_code != 200:
+    print("Error fetching data from Jenkins:", response.status_code)
+    print(response.text)
+    exit(1)
+
+data = json.loads(response.text)
+
+wb = openpyxl.Workbook()
+ws = wb.active
+ws.title = "Jenkins Roles"
+ws.append(["Role Type", "Role Name", "Users"])
+
+for role_type, roles in data.items():
+    for role_name, users in roles.items():
+        ws.append([role_type, role_name, ", ".join(users)])
+
+wb.save("${env.REPORT_FILE}")
+print("✅ Report saved to ${env.REPORT_FILE}")
+"""
+                }
+            }
+        }
+
+        stage('Run Python Script') {
+            steps {
+                sh """
+                    ${env.PYTHON} -m pip install --upgrade --user openpyxl requests
+                    ${env.PYTHON} generate_report.py
+                """
+            }
+        }
+
+        stage('Email Report') {
+            steps {
+                emailext (
+                    subject: "Jenkins Role-Based Access Report",
+                    body: "Hi Team,\n\nPlease find attached the latest Jenkins Role-Based Access report.\n\nRegards,\nJenkins",
+                    to: 'test@test.com',
+                    attachmentsPattern: "${env.REPORT_FILE}",
+                    mimeType: 'text/plain'
+                )
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
